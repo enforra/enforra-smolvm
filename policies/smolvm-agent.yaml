@@ -4,7 +4,8 @@ defaults:
   decision: block
 
 policies:
-  - id: block-dangerous-registry-pack-run
+  # 1. Block destructive pack run
+  - id: block-dangerous-pack-run
     priority: 5
     match:
       agent: infra-agent
@@ -15,7 +16,8 @@ policies:
         value: "rm -rf"
     decision: block
 
-  - id: block-dangerous-registry-rehydrate-run
+  # 2. Block destructive machine run
+  - id: block-dangerous-machine-run
     priority: 6
     match:
       agent: infra-agent
@@ -26,6 +28,7 @@ policies:
         value: "rm -rf"
     decision: block
 
+  # 3. Allow approved registry inspect
   - id: allow-approved-registry-inspect
     priority: 10
     match:
@@ -37,6 +40,7 @@ policies:
         value: "registry.smolmachines.com/library/codex:arm64"
     decision: allow
 
+  # 4. Allow approved registry pull
   - id: allow-approved-registry-pull
     priority: 20
     match:
@@ -46,40 +50,34 @@ policies:
       - field: args.reference
         operator: eq
         value: "registry.smolmachines.com/library/codex:arm64"
-      - field: args.output
-        operator: eq
-        value: "./codex-registry.smolmachine"
     decision: allow
 
-  - id: allow-approved-registry-pack-run
+  # 5. Allow approved pack run (by source reference)
+  - id: allow-approved-pack-run
     priority: 30
     match:
       agent: infra-agent
       tool: smolvm.pack.run
     conditions:
-      - field: args.sidecar
+      - field: args.sourceReference
         operator: eq
-        value: "./codex-registry.smolmachine"
-      - field: args.workload
-        operator: eq
-        value: "approved-registry-pack-run"
+        value: "registry.smolmachines.com/library/codex:arm64"
     decision: allow
 
-  - id: allow-approved-registry-rehydrate-run
+  # 6. Allow approved machine run (by source reference)
+  - id: allow-approved-machine-run
     priority: 40
     match:
       agent: infra-agent
       tool: smolvm.machine.run.from_registry_pack
     conditions:
-      - field: args.from
+      - field: args.sourceReference
         operator: eq
-        value: "./codex-registry.smolmachine"
-      - field: args.workload
-        operator: eq
-        value: "approved-registry-rehydrate"
+        value: "registry.smolmachines.com/library/codex:arm64"
     decision: allow
 
-  - id: approval-for-unknown-registry-artifact
+  # 7. Require approval for unknown registry pull
+  - id: approval-for-unknown-registry-pull
     priority: 80
     match:
       agent: infra-agent
@@ -90,13 +88,34 @@ policies:
         value: "registry.smolmachines.com"
     decision: require_approval
 
-  - id: approval-for-unknown-registry-rehydrate
+  # 8. Require approval for unknown pack run sourceReference
+  - id: approval-for-unknown-pack-run
     priority: 90
+    match:
+      agent: infra-agent
+      tool: smolvm.pack.run
+    conditions:
+      - field: args.sourceReference
+        operator: eq
+        value: "unknown"
+    decision: require_approval
+
+  # 9. Require approval for unknown machine run sourceReference
+  - id: approval-for-unknown-machine-run
+    priority: 100
     match:
       agent: infra-agent
       tool: smolvm.machine.run.from_registry_pack
     conditions:
-      - field: args.from
-        operator: contains
-        value: ".smolmachine"
+      - field: args.sourceReference
+        operator: eq
+        value: "unknown"
     decision: require_approval
+
+  # 10. Block unsupported commands by default
+  - id: block-unsupported-commands
+    priority: 110
+    match:
+      agent: infra-agent
+      tool: smolvm.unsupported
+    decision: block
