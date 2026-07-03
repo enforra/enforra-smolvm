@@ -1,0 +1,14 @@
+{
+  "name": "enforra-smolvm",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node src/enforra-smolvm.js",
+    "policy": "node src/enforra-smolvm.js --dry-run",
+    "check:smolvm": "smolvm --help"
+  },
+  "dependencies": {
+    "@enforra/sdk-node": "latest"
+  }
+}

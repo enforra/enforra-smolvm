@@ -1,0 +1,15 @@
+node_modules/
+.enforra/
+
+*.smolmachine
+codex-registry.smolmachine
+node-registry.smolmachine
+node.smolmachine
+node
+
+*.log
+enforra-smolvm-*-output.txt
+
+.DS_Store
+.env
+.env.*

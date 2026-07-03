@@ -1,0 +1,102 @@
+version: 1
+
+defaults:
+  decision: block
+
+policies:
+  - id: block-dangerous-registry-pack-run
+    priority: 5
+    match:
+      agent: infra-agent
+      tool: smolvm.pack.run
+    conditions:
+      - field: args.command
+        operator: contains
+        value: "rm -rf"
+    decision: block
+
+  - id: block-dangerous-registry-rehydrate-run
+    priority: 6
+    match:
+      agent: infra-agent
+      tool: smolvm.machine.run.from_registry_pack
+    conditions:
+      - field: args.command
+        operator: contains
+        value: "rm -rf"
+    decision: block
+
+  - id: allow-approved-registry-inspect
+    priority: 10
+    match:
+      agent: infra-agent
+      tool: smolvm.pack.inspect
+    conditions:
+      - field: args.reference
+        operator: eq
+        value: "registry.smolmachines.com/library/codex:arm64"
+    decision: allow
+
+  - id: allow-approved-registry-pull
+    priority: 20
+    match:
+      agent: infra-agent
+      tool: smolvm.pack.pull
+    conditions:
+      - field: args.reference
+        operator: eq
+        value: "registry.smolmachines.com/library/codex:arm64"
+      - field: args.output
+        operator: eq
+        value: "./codex-registry.smolmachine"
+    decision: allow
+
+  - id: allow-approved-registry-pack-run
+    priority: 30
+    match:
+      agent: infra-agent
+      tool: smolvm.pack.run
+    conditions:
+      - field: args.sidecar
+        operator: eq
+        value: "./codex-registry.smolmachine"
+      - field: args.workload
+        operator: eq
+        value: "approved-registry-pack-run"
+    decision: allow
+
+  - id: allow-approved-registry-rehydrate-run
+    priority: 40
+    match:
+      agent: infra-agent
+      tool: smolvm.machine.run.from_registry_pack
+    conditions:
+      - field: args.from
+        operator: eq
+        value: "./codex-registry.smolmachine"
+      - field: args.workload
+        operator: eq
+        value: "approved-registry-rehydrate"
+    decision: allow
+
+  - id: approval-for-unknown-registry-artifact
+    priority: 80
+    match:
+      agent: infra-agent
+      tool: smolvm.pack.pull
+    conditions:
+      - field: args.reference
+        operator: contains
+        value: "registry.smolmachines.com"
+    decision: require_approval
+
+  - id: approval-for-unknown-registry-rehydrate
+    priority: 90
+    match:
+      agent: infra-agent
+      tool: smolvm.machine.run.from_registry_pack
+    conditions:
+      - field: args.from
+        operator: contains
+        value: ".smolmachine"
+    decision: require_approval
