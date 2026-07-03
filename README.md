@@ -2,16 +2,16 @@
 
 Policy, approval, and audit for agent-driven smolvm registry workloads.
 
-`enforra-smolvm` shows how Enforra can gate real smolvm registry actions before they execute.
+`enforra-smolvm` gates real smolvm registry actions before they execute.
 
-It controls:
+## What it controls
 
 - registry inspect
 - registry pull
 - running a pulled `.smolmachine`
 - rehydrating a pulled `.smolmachine` with `machine run --from`
 - approval for unknown registry artifacts
-- blocking destructive commands
+- blocking destructive commands before smolvm runs
 - local audit logging
 
 ## Why
@@ -26,7 +26,7 @@ Enforra adds the control layer around how agents use those artifacts:
 - Which commands should be blocked?
 - What audit trail is recorded?
 
-## Flow
+## Registry flow
 
 This integration gates the public smolvm registry flow:
 
