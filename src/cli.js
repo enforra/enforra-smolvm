@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 import { createEnforraClient } from "@enforra/sdk-node";
-import { spawn } from "node:child_process";
 import { parseSmolvmArgs } from "./command.js";
-import { getArtifact, recordArtifact } from "./artifact-store.js";
+import { getArtifact } from "./artifact-store.js";
+import { appendApprovalAuditEvent, promptForApproval } from "./approval.js";
+import { executeSmolvmCommand } from "./smolvm-executor.js";
 
 const isPolicyOnly = process.env.ENFORRA_SMOLVM_POLICY_ONLY === "1";
 
@@ -25,7 +26,7 @@ Also mention:
 async function main() {
   const argv = process.argv.slice(2);
 
-  if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
+  if (argv.length === 0 || (argv.length === 1 && (argv[0] === "--help" || argv[0] === "-h"))) {
     printHelp();
     process.exit(0);
   }
@@ -40,12 +41,14 @@ async function main() {
     }
   }
 
+  const auditPath = process.env.ENFORRA_SMOLVM_AUDIT || ".enforra/audit.jsonl";
+
   // Create Enforra client
   let enforra;
   try {
     enforra = await createEnforraClient({
       policyPath: process.env.ENFORRA_SMOLVM_POLICY || "./policies/smolvm-agent.yaml",
-      auditPath: process.env.ENFORRA_SMOLVM_AUDIT || ".enforra/audit.jsonl"
+      auditPath
     });
   } catch (error) {
     console.error("Error creating Enforra client:", error.message);
@@ -70,24 +73,7 @@ async function main() {
           return { exitCode: 0 };
         }
 
-        return new Promise((resolve) => {
-          const child = spawn("smolvm", argv, { stdio: "inherit" });
-          child.on("close", (code) => {
-            const finalCode = code ?? 0;
-            if (finalCode === 0 && parsed.tool === "smolvm.pack.pull" && parsed.artifactOutput && parsed.args.reference) {
-              try {
-                recordArtifact(parsed.artifactOutput, { sourceReference: parsed.args.reference });
-              } catch (err) {
-                console.error("Error recording artifact provenance:", err.message);
-              }
-            }
-            resolve({ exitCode: finalCode });
-          });
-          child.on("error", (err) => {
-            console.error("Failed to start smolvm process:", err.message);
-            resolve({ exitCode: 1 });
-          });
-        });
+        return executeSmolvmCommand(argv, parsed);
       }
     });
 
@@ -112,13 +98,42 @@ async function main() {
       }
       if (isPolicyOnly) {
         console.log(`[Policy Only] Would require approval: ${commandText}`);
-      } else {
-        console.error("Error: Approval required for this action.");
-        if (result.reason) {
-          console.error(`Reason: ${result.reason}`);
-        }
+        process.exit(2);
       }
-      process.exit(2);
+
+      console.error("Approval required for this action.");
+      console.error(`Action: ${commandText}`);
+      if (result.reason) {
+        console.error(`Reason: ${result.reason}`);
+      }
+
+      const approved = await promptForApproval();
+      if (!approved) {
+        appendApprovalAuditEvent({
+          auditPath,
+          tool: parsed.tool,
+          args: parsed.args,
+          commandText,
+          approved: false,
+          executed: false,
+          exitCode: 2,
+          reason: result.reason
+        });
+        process.exit(2);
+      }
+
+      const execution = await executeSmolvmCommand(argv, parsed);
+      appendApprovalAuditEvent({
+        auditPath,
+        tool: parsed.tool,
+        args: parsed.args,
+        commandText,
+        approved: true,
+        executed: true,
+        exitCode: execution.exitCode,
+        reason: result.reason
+      });
+      process.exit(execution.exitCode ?? 0);
     }
 
     if (result.decision === "allow" || result.decision === "log_only") {

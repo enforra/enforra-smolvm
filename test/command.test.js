@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert";
 import path from "node:path";
 import { parseSmolvmArgs } from "../src/command.js";
+import { isApprovalAnswerApproved } from "../src/approval.js";
 
 test("pack inspect with --json (standard and reordered)", () => {
   const result1 = parseSmolvmArgs(["pack", "inspect", "--json", "registry.smolmachines.com/library/codex:arm64"]);
@@ -82,4 +83,15 @@ test("unsupported commands", () => {
   const result2 = parseSmolvmArgs([]);
   assert.strictEqual(result2.supported, false);
   assert.strictEqual(result2.tool, "smolvm.unsupported");
+});
+
+
+test("approval answer parsing accepts only y or yes", () => {
+  for (const answer of ["y", "Y", "yes", "YES", "  YeS  "]) {
+    assert.strictEqual(isApprovalAnswerApproved(answer), true, `${answer} should approve`);
+  }
+
+  for (const answer of ["", "n", "no", "anything else", "yeah", " true ", null, undefined]) {
+    assert.strictEqual(isApprovalAnswerApproved(answer), false, `${answer} should decline`);
+  }
 });

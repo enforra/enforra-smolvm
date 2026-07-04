@@ -10,7 +10,8 @@ A policy-gated `smolvm` CLI wrapper powered by Enforra.
 - **Local Policy Gating**: Evaluates policy against a local YAML file (`policies/smolvm-agent.yaml`). No hosted Enforra account is required.
 - **Artifact Provenance Tracking**: Tracks pulled `.smolmachine` artifacts back to their registry reference using `.enforra/smolvm-artifacts.json`.
 - **Local Auditing**: Logs decisions and executions locally in JSONL format (`.enforra/audit.jsonl`).
-- **Policy-Only Dry Run**: Evaluate policies and simulate decisions without spawning `smolvm`.
+- **Policy-Only Dry Run**: Evaluate policies and simulate decisions without spawning `smolvm` or prompting for approval.
+- **Interactive Approval**: `require_approval` decisions show the proposed action and ask a human before executing.
 
 ## Supported Commands
 
@@ -67,6 +68,22 @@ enforra-smolvm pack run --sidecar ./codex.smolmachine node -e "console.log(proce
 # 4. Rehydrate the package using machine run --from
 enforra-smolvm machine run --from ./codex.smolmachine node -e "console.log(process.version)"
 ```
+
+---
+
+## Policy Decisions
+
+`enforra-smolvm` handles Enforra decisions as follows:
+
+- `allow` and `log_only`: run the real `smolvm` command immediately.
+- `block`: never run the real `smolvm` command and exit with code `3`.
+- `require_approval`: print the action, then prompt:
+
+```text
+Approve and run this smolvm command? [y/N]:
+```
+
+Only `y` or `yes` (case-insensitive) approves execution. Pressing Enter, `n`, or any other answer declines the action, does not run `smolvm`, appends a manual-decline audit event, and exits with code `2`. Approved commands run via the real `smolvm` binary; successful `pack pull` approvals also record artifact provenance. In `ENFORRA_SMOLVM_POLICY_ONLY=1` mode, the wrapper reports that approval would be required but never prompts and never runs `smolvm`.
 
 ---
 
