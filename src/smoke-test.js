@@ -32,16 +32,27 @@ fs.writeFileSync(
   "utf8"
 );
 
-async function runCLI(args) {
+async function runCLI(args, inputText, envExtra = {}) {
   return new Promise((resolve) => {
     const child = spawn("node", ["src/cli.js", ...args], {
-      stdio: "inherit",
-      env: { ...process.env }
+      stdio: inputText === undefined ? "inherit" : ["pipe", "inherit", "inherit"],
+      env: { ...process.env, ...envExtra }
     });
+    if (inputText !== undefined) {
+      child.stdin.end(inputText);
+    }
     child.on("close", (code) => {
       resolve(code ?? 0);
     });
   });
+}
+
+function createFakeSmolvmBin() {
+  const fakeBinDir = fs.mkdtempSync(path.join(process.cwd(), ".enforra/fake-smolvm-"));
+  const fakeSmolvmPath = path.join(fakeBinDir, "smolvm");
+  fs.writeFileSync(fakeSmolvmPath, "#!/usr/bin/env node\nprocess.exit(0);\n", "utf8");
+  fs.chmodSync(fakeSmolvmPath, 0o755);
+  return fakeBinDir;
 }
 
 async function run() {
@@ -71,17 +82,25 @@ async function run() {
       expectedExitCode: 0
     },
     {
-      name: "5. Approval Required: Pull unknown registry reference",
+      name: "5. Approval Required: Pull unknown registry reference (decline)",
       args: ["pack", "pull", "registry.smolmachines.com/unknown/agent:latest", "-o", "./unknown-agent.smolmachine"],
+      input: "n\n",
       expectedExitCode: 2
     },
     {
-      name: "6. Blocked: Destructive command on sidecar package",
+      name: "6. Approval Required: Pull unknown registry reference (approve with fake smolvm)",
+      args: ["pack", "pull", "registry.smolmachines.com/unknown/agent:latest", "-o", "./unknown-agent.smolmachine"],
+      input: "y\n",
+      fakeSmolvm: true,
+      expectedExitCode: isPolicyOnly ? 2 : 0
+    },
+    {
+      name: "7. Blocked: Destructive command on sidecar package",
       args: ["pack", "run", "--sidecar", "./codex.smolmachine", "sh", "-lc", "rm -rf /workspace"],
       expectedExitCode: 3
     },
     {
-      name: "7. Blocked: Unsupported smolvm command",
+      name: "8. Blocked: Unsupported smolvm command",
       args: ["pack", "list"],
       expectedExitCode: 3
     }
@@ -92,7 +111,8 @@ async function run() {
   for (const tc of testCases) {
     console.log(`\n--- Running Case: ${tc.name} ---`);
     console.log(`Command: enforra-smolvm ${tc.args.join(" ")}`);
-    const code = await runCLI(tc.args);
+    const envExtra = tc.fakeSmolvm && !isPolicyOnly ? { PATH: `${createFakeSmolvmBin()}${path.delimiter}${process.env.PATH || ""}` } : {};
+    const code = await runCLI(tc.args, isPolicyOnly ? undefined : tc.input, envExtra);
     const passed = code === tc.expectedExitCode;
     results.push({ name: tc.name, expected: tc.expectedExitCode, actual: code, passed });
     console.log(`Exit Code: ${code} (Expected: ${tc.expectedExitCode}) -> ${passed ? "PASS" : "FAIL"}`);
