@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env node-real
 
 import { createEnforraClient } from "@enforra/sdk-node";
 import fs from "node:fs";
@@ -41,12 +41,20 @@ function inferToolAndRisk(argv) {
     return { tool: "node.exec", risk: "low" };
   }
 
-  // Rule 2 & 3: npm
+  // Rule 2 & 3: npm and npx
   if (argv[0] === "npm") {
     if (argv[1] === "install" || argv[1] === "i") {
       return { tool: "npm.install", risk: "medium" };
     }
     return { tool: "npm.exec", risk: "low" };
+  }
+
+  if (argv[0] === "npx") {
+    return { tool: "npm.exec", risk: "low" };
+  }
+
+  if (argv[0] === "env") {
+    return { tool: "env.exec", risk: "high" };
   }
 
   // Dangerous patterns check
@@ -79,9 +87,45 @@ async function promptForApproval() {
   }
 }
 
+function resolveRealCommand(command, commandArgs) {
+  if (command === "node") {
+    return { command: "/usr/local/bin/node-real", args: commandArgs };
+  }
+
+  if (command === "npm") {
+    return {
+      command: "/usr/local/bin/node-real",
+      args: ["/usr/local/lib/node_modules/npm/bin/npm-cli.js", ...commandArgs]
+    };
+  }
+
+  if (command === "npx") {
+    return {
+      command: "/usr/local/bin/node-real",
+      args: ["/usr/local/lib/node_modules/npm/bin/npx-cli.js", ...commandArgs]
+    };
+  }
+
+  if (command === "sh") {
+    return { command: "/bin/sh", args: commandArgs };
+  }
+
+  if (command === "bash") {
+    return { command: "/bin/bash", args: commandArgs };
+  }
+
+  if (command === "env") {
+    return { command: "/usr/bin/env", args: commandArgs };
+  }
+
+  return { command, args: commandArgs };
+}
+
 function runChildCommand(command, commandArgs) {
+  const resolved = resolveRealCommand(command, commandArgs);
+
   return new Promise((resolve) => {
-    const child = spawn(command, commandArgs, { stdio: "inherit" });
+    const child = spawn(resolved.command, resolved.args, { stdio: "inherit" });
     child.on("close", (code) => {
       resolve(code ?? 0);
     });
