@@ -1,3 +1,6 @@
+# Host-side policy for the enforra-smolvm CLI wrapper.
+# This controls smolvm commands before a VM starts.
+
 version: 1
 
 defaults:

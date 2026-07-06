@@ -7,7 +7,7 @@ A policy-gated `smolvm` CLI wrapper powered by Enforra.
 ## Features
 
 - **Transparent Wrapper**: Direct drop-in replacement for `smolvm` subcommands.
-- **Local Policy Gating**: Evaluates policy against a local YAML file (`policies/smolvm-agent.yaml`). No hosted Enforra account is required.
+- **Local Policy Gating**: Evaluates policy against a local YAML file (`policies/smolvm-host-policy.yaml`). No hosted Enforra account is required.
 - **Artifact Provenance Tracking**: Tracks pulled `.smolmachine` artifacts back to their registry reference using `.enforra/smolvm-artifacts.json`.
 - **Local Auditing**: Logs decisions and executions locally in JSONL format (`.enforra/audit.jsonl`).
 - **Policy-Only Dry Run**: Evaluate policies and simulate decisions without spawning `smolvm` or prompting for approval.
@@ -87,6 +87,20 @@ Only `y` or `yes` (case-insensitive) approves execution. Pressing Enter, `n`, or
 
 ---
 
+## Policy files
+
+This repo has two policy layers:
+
+1. policies/smolvm-host-policy.yaml
+   Host-side policy for the enforra-smolvm CLI wrapper. It controls smolvm commands before a VM starts.
+
+2. packs/enforra-node/policy.yaml
+   Guest-side policy bundled into the Enforra Node smolmachine. It controls node, npm, shell and other commands inside the VM.
+
+For the Enforra Node smolmachine integration, most users only need packs/enforra-node/policy.yaml.
+
+---
+
 ## Verification & Scripts
 
 ### Run Unit Tests
@@ -125,7 +139,7 @@ node -e 'const fs=require("fs"); const rows=fs.readFileSync(".enforra/audit.json
 
 ## Technical Details
 
-- **Policy Path**: Customizable via `ENFORRA_SMOLVM_POLICY` (defaults to `policies/smolvm-agent.yaml`).
+- **Policy Path**: Customizable via `ENFORRA_SMOLVM_POLICY` (defaults to `policies/smolvm-host-policy.yaml`).
 - **Audit Path**: Customizable via `ENFORRA_SMOLVM_AUDIT` (defaults to `.enforra/audit.jsonl`).
 - **Artifact Provenance**: Tracked in `.enforra/smolvm-artifacts.json` mapping absolute paths of local artifacts to their original registry reference.
 

@@ -1,3 +1,6 @@
+# Guest-side policy bundled into the Enforra Node smolmachine.
+# This controls node, npm, shell and other commands inside the VM.
+
 # Enforra Starter Policy for the Protected Node Smolmachine
 #
 # This is the bundled Enforra starter policy for the protected Node smolmachine.

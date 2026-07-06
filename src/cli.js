@@ -18,7 +18,7 @@ Examples:
   enforra-smolvm machine run --from ./codex.smolmachine node -e "console.log(process.version)"
 
 Also mention:
-- policy file: policies/smolvm-agent.yaml
+- policy file: policies/smolvm-host-policy.yaml
 - audit file: .enforra/audit.jsonl
 - artifact provenance file: .enforra/smolvm-artifacts.json`);
 }
@@ -47,7 +47,7 @@ async function main() {
   let enforra;
   try {
     enforra = await createEnforraClient({
-      policyPath: process.env.ENFORRA_SMOLVM_POLICY || "./policies/smolvm-agent.yaml",
+      policyPath: process.env.ENFORRA_SMOLVM_POLICY || "./policies/smolvm-host-policy.yaml",
       auditPath
     });
   } catch (error) {
