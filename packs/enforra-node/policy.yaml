@@ -1,0 +1,71 @@
+version: 1
+
+defaults:
+  decision: block
+
+policies:
+  - id: block-dangerous-shell-command
+    priority: 5
+    match:
+      agent: enforra-node
+      tool: shell.exec
+    conditions:
+      - field: args.command
+        operator: contains
+        value: "rm -rf"
+    decision: block
+
+  - id: allow-low-risk-node-exec
+    priority: 10
+    match:
+      agent: enforra-node
+      tool: node.exec
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "low"
+    decision: allow
+
+  - id: allow-low-risk-npm-exec
+    priority: 15
+    match:
+      agent: enforra-node
+      tool: npm.exec
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "low"
+    decision: allow
+
+  - id: require-approval-medium-risk-npm
+    priority: 20
+    match:
+      agent: enforra-node
+      tool: npm.install
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "medium"
+    decision: require_approval
+
+  - id: require-approval-medium-risk-shell
+    priority: 30
+    match:
+      agent: enforra-node
+      tool: shell.exec
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "medium"
+    decision: require_approval
+
+  - id: require-approval-medium-risk-command
+    priority: 40
+    match:
+      agent: enforra-node
+      tool: command.exec
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "medium"
+    decision: require_approval

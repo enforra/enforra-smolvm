@@ -1,0 +1,11 @@
+{
+  "name": "enforra-node",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "enforra-run": "./enforra-run.js"
+  },
+  "dependencies": {
+    "@enforra/sdk-node": "latest"
+  }
+}

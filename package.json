@@ -11,7 +11,9 @@
     "smoke": "node src/smoke-test.js",
     "policy": "ENFORRA_SMOLVM_POLICY_ONLY=1 node src/smoke-test.js",
     "check:smolvm": "smolvm --help",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "pack:build": "./scripts/build-enforra-node-pack.sh",
+    "pack:run": "smolvm pack run --sidecar packs/enforra-node/enforra-node.smolmachine"
   },
   "dependencies": {
     "@enforra/sdk-node": "latest"
