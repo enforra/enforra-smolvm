@@ -6,6 +6,6 @@
     "enforra-run": "./enforra-run.js"
   },
   "dependencies": {
-    "@enforra/sdk-node": "latest"
+    "@enforra/sdk-node": "0.3.0"
   }
 }

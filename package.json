@@ -16,6 +16,6 @@
     "pack:run": "smolvm pack run --sidecar packs/enforra-node/enforra-node.smolmachine"
   },
   "dependencies": {
-    "@enforra/sdk-node": "latest"
+    "@enforra/sdk-node": "0.3.0"
   }
 }
