@@ -1,0 +1,215 @@
+# Guest-side policy bundled into the Enforra Node smolmachine.
+# This controls node, npm, shell and other commands inside the VM.
+
+# Enforra Starter Policy for the Protected Node Smolmachine
+#
+# This is the bundled Enforra starter policy for the protected Node smolmachine.
+# It is intentionally readable but covers common enterprise command-risk categories.
+# Teams can edit policy.yaml and rebuild the smolmachine with their own controls.
+#
+# Decision defaults: block (any unmatched command is blocked)
+
+version: 1
+
+defaults:
+  decision: block
+
+policies:
+
+  # ── BLOCK: Dangerous operations (highest priority) ──────────────────
+
+  - id: block-destructive-operations
+    priority: 1
+    match:
+      agent: enforra-node
+    conditions:
+      - field: args.destructiveOperation
+        operator: eq
+        value: true
+    decision: block
+
+  - id: block-sensitive-path-access
+    priority: 2
+    match:
+      agent: enforra-node
+    conditions:
+      - field: args.touchesSensitivePath
+        operator: eq
+        value: true
+    decision: block
+
+  - id: block-secret-reading
+    priority: 3
+    match:
+      agent: enforra-node
+    conditions:
+      - field: args.readsSecrets
+        operator: eq
+        value: true
+    decision: block
+
+  - id: block-download-and-execute
+    priority: 4
+    match:
+      agent: enforra-node
+    conditions:
+      - field: args.downloadAndExecute
+        operator: eq
+        value: true
+    decision: block
+
+  - id: block-data-exfiltration
+    priority: 5
+    match:
+      agent: enforra-node
+    conditions:
+      - field: args.dataExfiltration
+        operator: eq
+        value: true
+    decision: block
+
+  - id: block-privilege-escalation
+    priority: 6
+    match:
+      agent: enforra-node
+    conditions:
+      - field: args.privilegeEscalation
+        operator: eq
+        value: true
+    decision: block
+
+  - id: block-cloud-credential-access
+    priority: 7
+    match:
+      agent: enforra-node
+    conditions:
+      - field: args.cloudCredentialAccess
+        operator: eq
+        value: true
+    decision: block
+
+  # ── ALLOW: Safe operations ──────────────────────────────────────────
+
+  - id: allow-low-risk-node-exec
+    priority: 10
+    match:
+      agent: enforra-node
+      tool: node.exec
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "low"
+    decision: allow
+
+  - id: allow-low-risk-npm-metadata
+    priority: 11
+    match:
+      agent: enforra-node
+      tool: npm.exec
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "low"
+    decision: allow
+
+  - id: allow-safe-file-reads
+    priority: 12
+    match:
+      agent: enforra-node
+      tool: file.read
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "low"
+    decision: allow
+
+  # ── REQUIRE APPROVAL: Medium-risk operations ────────────────────────
+
+  - id: approval-for-file-delete
+    priority: 15
+    match:
+      agent: enforra-node
+      tool: file.delete
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "medium"
+    decision: require_approval
+
+
+  - id: approval-for-package-install
+    priority: 20
+    match:
+      agent: enforra-node
+      tool: npm.install
+    conditions:
+      - field: args.packageInstall
+        operator: eq
+        value: true
+    decision: require_approval
+
+  - id: approval-for-package-mutation
+    priority: 21
+    match:
+      agent: enforra-node
+      tool: npm.install
+    conditions:
+      - field: args.packageMutation
+        operator: eq
+        value: true
+    decision: require_approval
+
+  - id: approval-for-medium-risk-shell
+    priority: 30
+    match:
+      agent: enforra-node
+      tool: shell.exec
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "medium"
+    decision: require_approval
+
+  - id: approval-for-network-download
+    priority: 31
+    match:
+      agent: enforra-node
+      tool: network.exec
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "medium"
+    decision: require_approval
+
+  - id: approval-for-git-operations
+    priority: 32
+    match:
+      agent: enforra-node
+      tool: git.exec
+    conditions:
+      - field: args.risk
+        operator: eq
+        value: "medium"
+    decision: require_approval
+
+  - id: approval-for-cloud-infra
+    priority: 33
+    match:
+      agent: enforra-node
+      tool: infra.exec
+    conditions:
+      - field: args.cloudOrInfraAccess
+        operator: eq
+        value: true
+    decision: require_approval
+
+  - id: approval-for-unknown-commands
+    priority: 40
+    match:
+      agent: enforra-node
+      tool: command.exec
+    conditions:
+      - field: args.unknownCommand
+        operator: eq
+        value: true
+    decision: require_approval

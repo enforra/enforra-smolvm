@@ -9,3 +9,7 @@ node-registry.smolmachine
 *.log
 .env
 .env.*
+audit.jsonl
+*.smolmachine.smolmachine
+packs/enforra-node/enforra-node
+
