@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
-import { classifyCommand, inferToolAndRisk, resolveRealCommand } from "../packs/enforra-node/enforra-run.js";
+import { classifyCommand, inferToolAndRisk } from "../packs/enforra-node/src/command-classifier.js";
+import { resolveRealCommand } from "../packs/enforra-node/src/real-commands.js";
 
 // ── Legacy inferToolAndRisk compatibility ──────────────────────────────
 

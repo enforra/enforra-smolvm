@@ -9,6 +9,7 @@ RUN npm ci --omit=dev
 
 # Copy the Enforra entrypoint and policy file
 COPY enforra-run.js policy.yaml ./
+COPY src ./src
 
 # ── Wrapper-based protection layer (must be last in the build) ──────
 #
