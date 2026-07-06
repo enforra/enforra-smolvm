@@ -1,5 +1,5 @@
 #!/usr/bin/env node-real
 
-import { main } from "./src/main.js";
+import { main } from "./runtime/main.js";
 
 main();
