@@ -1,3 +1,7 @@
+// Image-specific command routing.
+// These paths point to the real binaries behind the wrapper commands.
+// Security classification lives in @enforra/command-guard.
+
 import { spawn } from "node:child_process";
 
 export const REAL_COMMANDS = {

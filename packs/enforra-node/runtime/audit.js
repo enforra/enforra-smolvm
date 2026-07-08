@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export function writeManualAuditEvent({ tool, args, approved, executed, exitCode }, auditPath) {
+export function writeManualAuditEvent({ agent, tool, args, approved, executed, exitCode }, auditPath) {
   const event = {
     timestamp: new Date().toISOString(),
-    agent: "enforra-node",
+    agent: agent || "enforra-node",
     tool,
     args,
     decision: "require_approval",

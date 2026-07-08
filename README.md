@@ -140,3 +140,9 @@ node -e 'const fs=require("fs"); const rows=fs.readFileSync(".enforra/audit.json
 
 - This wrapper operates at the command invocation level (does not replace `smolvm` globally unless linked).
 - A future native integration could involve hooking into the `smolvm` CLI natively via a policy hook system.
+
+---
+
+## Command risk classification
+
+Command risk classification is provided by [`@enforra/command-guard`](https://github.com/enforra/enforra/tree/main/packages/command-guard) from the Enforra OSS core. The smolvm repo only adds the smolvm-specific wrapper, binary mapping (`real-commands.js`), pack build script, and policy wiring. The local `command-classifier.js` file is a thin re-export shim for backward compatibility only.

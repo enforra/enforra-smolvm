@@ -1,7 +1,7 @@
 import { createEnforraClient } from "@enforra/sdk-node";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { classifyCommand } from "./command-classifier.js";
+import { classifyCommand } from "@enforra/command-guard";
 import { executeReal } from "./real-commands.js";
 import { promptForApproval } from "./approval.js";
 import { writeManualAuditEvent } from "./audit.js";
@@ -12,6 +12,9 @@ const __dirname = path.dirname(__filename);
 const POLICY_PATH = process.env.ENFORRA_POLICY || path.join(__dirname, "..", "policy.yaml");
 const AUDIT_PATH = process.env.ENFORRA_AUDIT || path.join(__dirname, "..", "audit.jsonl");
 
+const AGENT_ID = process.env.ENFORRA_AGENT_ID || "enforra-node";
+const RUNTIME_ID = process.env.ENFORRA_RUNTIME_ID || "enforra-node-smolmachine";
+
 function printHelp() {
   console.log(`Enforra Protected Node Runtime
 
@@ -20,10 +23,8 @@ Usage:
 
   Inside the enforra-node smolmachine, common commands (node, npm, sh,
   env, curl, etc.) are wrapped so they route through Enforra policy
-  before execution. Users run normal commands — wrappers handle the rest.
-
-Usage (explicit mode — advanced/debug):
-  enforra-run --tool <tool> --risk <risk> -- <command> [args...]
+  before execution. Commands are automatically classified and gated 
+  by Enforra policy internally before execution.
 
 Examples:
   node -e "console.log('hello')"
@@ -41,46 +42,15 @@ export async function main() {
     process.exit(0);
   }
 
-  let tool = null;
-  let risk = null;
-  let classificationArgs = {};
-  let targetCommand = null;
-  let targetArgs = [];
-  let targetArgv = [];
+  // Always classify the actual target command internally
+  const targetCommand = argv[0];
+  const targetArgs = argv.slice(1);
+  const targetArgv = argv;
 
-  const commandIndex = argv.indexOf("--");
-  const hasExplicitFlags = argv.includes("--tool") && argv.includes("--risk") && commandIndex !== -1;
-
-  if (hasExplicitFlags) {
-    for (let i = 0; i < commandIndex; i++) {
-      if (argv[i] === "--tool" && i + 1 < commandIndex) {
-        tool = argv[i + 1];
-        i++;
-      } else if (argv[i] === "--risk" && i + 1 < commandIndex) {
-        risk = argv[i + 1];
-        i++;
-      }
-    }
-    if (!tool || !risk || commandIndex + 1 >= argv.length) {
-      console.error("Error: Missing required arguments for explicit mode.");
-      printHelp();
-      process.exit(1);
-    }
-    targetCommand = argv[commandIndex + 1];
-    targetArgs = argv.slice(commandIndex + 2);
-    targetArgv = argv.slice(commandIndex + 1);
-    classificationArgs = { tool, risk, command: targetArgv.join(" "), argv: targetArgv };
-  } else {
-    // Inferred mode: argv IS the command
-    targetCommand = argv[0];
-    targetArgs = argv.slice(1);
-    targetArgv = argv;
-
-    const classified = classifyCommand(targetArgv);
-    tool = classified.tool;
-    risk = classified.risk;
-    classificationArgs = classified;
-  }
+  const classified = classifyCommand(targetArgv);
+  const tool = classified.tool;
+  const risk = classified.risk;
+  const classificationArgs = classified;
 
   const commandString = targetArgv.join(" ");
 
@@ -105,12 +75,12 @@ export async function main() {
 
   try {
     const result = await enforra.enforceToolCall({
-      agent: "enforra-node",
+      agent: AGENT_ID,
       tool,
       args,
       context: {
         environment: "production",
-        runtime: "enforra-node-smolmachine"
+        runtime: RUNTIME_ID
       },
       execute: async () => {
         const exitCode = await executeReal(targetCommand, targetArgs);
@@ -137,6 +107,7 @@ export async function main() {
       if (!approved) {
         console.log(`Command declined: ${commandString}`);
         writeManualAuditEvent({
+          agent: AGENT_ID,
           tool,
           args,
           approved: false,
@@ -149,6 +120,7 @@ export async function main() {
       console.log(`Command approved: ${commandString}`);
       const exitCode = await executeReal(targetCommand, targetArgs);
       writeManualAuditEvent({
+        agent: AGENT_ID,
         tool,
         args,
         approved: true,
