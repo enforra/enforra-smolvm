@@ -6,6 +6,7 @@
     "enforra-run": "./enforra-run.js"
   },
   "dependencies": {
+    "@enforra/command-guard": "^0.1.0",
     "@enforra/sdk-node": "0.3.0"
   }
 }
