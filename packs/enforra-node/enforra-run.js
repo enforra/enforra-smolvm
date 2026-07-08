@@ -1,4 +1,4 @@
-#!/usr/bin/env node-real
+#!/opt/enforra/real/node
 
 import { main } from "./runtime/main.js";
 
