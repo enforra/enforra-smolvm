@@ -1,7 +1,7 @@
 import { createEnforraClient } from "@enforra/sdk-node";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { classifyCommand } from "@enforra/command-guard";
+import { classifyCommand } from "./command-classifier.js";
 import { executeReal } from "./real-commands.js";
 import { promptForApproval } from "./approval.js";
 import { writeManualAuditEvent } from "./audit.js";

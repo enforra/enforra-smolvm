@@ -38,6 +38,34 @@ test("classifyCommand: node commands", () => {
   assert.strictEqual(r.destructiveOperation, false);
 });
 
+test("classifyCommand: node -e process.env secrets read", () => {
+  const r = classifyCommand(["node", "-e", "console.log(process.env)"]);
+  assert.strictEqual(r.tool, "secrets.read");
+  assert.strictEqual(r.risk, "high");
+  assert.strictEqual(r.readsSecrets, true);
+});
+
+test("classifyCommand: node -p process.env secrets read", () => {
+  const r = classifyCommand(["node", "-p", "process.env"]);
+  assert.strictEqual(r.tool, "secrets.read");
+  assert.strictEqual(r.risk, "high");
+  assert.strictEqual(r.readsSecrets, true);
+});
+
+test("classifyCommand: node -e readFileSync sensitive path", () => {
+  const r = classifyCommand(["node", "-e", "require('fs').readFileSync('/etc/passwd')"]);
+  assert.strictEqual(r.tool, "file.read");
+  assert.strictEqual(r.risk, "high");
+  assert.strictEqual(r.touchesSensitivePath, true);
+});
+
+test("classifyCommand: node -e child_process command execution", () => {
+  const r = classifyCommand(["node", "-e", "require('child_process').execSync('id')"]);
+  assert.strictEqual(r.tool, "command.exec");
+  assert.strictEqual(r.risk, "high");
+  assert.strictEqual(r.privilegeEscalation, true);
+});
+
 test("classifyCommand: nodejs alias", () => {
   const r = classifyCommand(["nodejs", "app.js"]);
   assert.strictEqual(r.tool, "node.exec");
