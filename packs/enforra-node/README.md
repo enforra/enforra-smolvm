@@ -100,13 +100,6 @@ Teams can edit `policy.yaml` and rebuild the smolmachine with their own controls
 
 ---
 
-## Overview and Differences
-
-- **Root Repository (enforra-smolvm)**: Acts as a host-side policy-gating wrapper around the `smolvm` CLI command itself.
-- **Packs (packs/enforra-node)**: Enforra runs **inside** the smolmachine VM, protecting commands inside the virtual machine boundary. No host wrapper is needed; the safety policies, interactive approval mechanism, and audit logger reside directly within the running guest OS.
-
----
-
 ## Local Build & Packaging
 
 If you are developing or testing this pack locally, you can build the OCI image and package it into a `.smolmachine` using a local docker registry.

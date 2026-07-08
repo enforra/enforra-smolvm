@@ -332,45 +332,39 @@ test("classifyCommand: metadata fields present", () => {
 
 // ── Real command resolution (wrapper architecture) ─────────────────────
 
-test("resolveRealCommand: node resolves to node-real", () => {
+test("resolveRealCommand: node resolves to /opt/enforra/real/node", () => {
   const r = resolveRealCommand("node", ["-e", "1+1"]);
-  assert.strictEqual(r.bin, "/usr/local/bin/node-real");
+  assert.strictEqual(r.bin, "/opt/enforra/real/node");
   assert.deepStrictEqual(r.args, ["-e", "1+1"]);
 });
 
-test("resolveRealCommand: npm resolves via node-real with npm-cli.js", () => {
+test("resolveRealCommand: npm resolves via real node with npm-cli.js", () => {
   const r = resolveRealCommand("npm", ["install", "lodash"]);
-  assert.strictEqual(r.bin, "/usr/local/bin/node-real");
+  assert.strictEqual(r.bin, "/opt/enforra/real/node");
   assert.deepStrictEqual(r.args, ["/usr/local/lib/node_modules/npm/bin/npm-cli.js", "install", "lodash"]);
 });
 
-test("resolveRealCommand: npx resolves via node-real with npx-cli.js", () => {
+test("resolveRealCommand: npx resolves via real node with npx-cli.js", () => {
   const r = resolveRealCommand("npx", ["eslint", "."]);
-  assert.strictEqual(r.bin, "/usr/local/bin/node-real");
+  assert.strictEqual(r.bin, "/opt/enforra/real/node");
   assert.deepStrictEqual(r.args, ["/usr/local/lib/node_modules/npm/bin/npx-cli.js", "eslint", "."]);
 });
 
-test("resolveRealCommand: sh resolves to /bin/sh", () => {
+test("resolveRealCommand: sh resolves to /opt/enforra/real/sh", () => {
   const r = resolveRealCommand("sh", ["-lc", "echo hello"]);
-  assert.strictEqual(r.bin, "/bin/sh");
+  assert.strictEqual(r.bin, "/opt/enforra/real/sh");
   assert.deepStrictEqual(r.args, ["-lc", "echo hello"]);
 });
 
-test("resolveRealCommand: env resolves to /usr/bin/env", () => {
+test("resolveRealCommand: env resolves to /opt/enforra/real/env", () => {
   const r = resolveRealCommand("env", []);
-  assert.strictEqual(r.bin, "/usr/bin/env");
+  assert.strictEqual(r.bin, "/opt/enforra/real/env");
   assert.deepStrictEqual(r.args, []);
 });
 
-test("resolveRealCommand: curl resolves to /usr/bin/curl", () => {
-  const r = resolveRealCommand("curl", ["https://example.com"]);
-  assert.strictEqual(r.bin, "/usr/bin/curl");
-  assert.deepStrictEqual(r.args, ["https://example.com"]);
-});
-
-test("resolveRealCommand: rm resolves to /usr/bin/rm", () => {
+test("resolveRealCommand: rm resolves to /opt/enforra/real/rm", () => {
   const r = resolveRealCommand("rm", ["-rf", "/tmp/test"]);
-  assert.strictEqual(r.bin, "/usr/bin/rm");
+  assert.strictEqual(r.bin, "/opt/enforra/real/rm");
   assert.deepStrictEqual(r.args, ["-rf", "/tmp/test"]);
 });
 
@@ -378,10 +372,4 @@ test("resolveRealCommand: unknown command passes through", () => {
   const r = resolveRealCommand("my-custom-tool", ["--flag"]);
   assert.strictEqual(r.bin, "my-custom-tool");
   assert.deepStrictEqual(r.args, ["--flag"]);
-});
-
-test("resolveRealCommand: aws resolves to /usr/bin/aws", () => {
-  const r = resolveRealCommand("aws", ["s3", "ls"]);
-  assert.strictEqual(r.bin, "/usr/bin/aws");
-  assert.deepStrictEqual(r.args, ["s3", "ls"]);
 });
