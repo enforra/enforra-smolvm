@@ -1,5 +1,6 @@
 node_modules/
 .enforra/
+dist/
 *.smolmachine
 codex.smolmachine
 codex-registry.smolmachine
