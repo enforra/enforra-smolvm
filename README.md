@@ -1,67 +1,153 @@
 # Enforra protected Node smolmachine
 
-This repository contains the source code and configuration for building and testing the **Enforra protected Node smolmachine** guest VM pack.
+A portable Node smolmachine with Enforra policy, approval, audit, explain mode, and tamper-evident policy receipts built into the supported command path.
 
-## How it works
+Users keep using normal `smolvm` commands. Safe commands run, risky commands can require approval, and destructive or secret-reading commands are blocked before the wrapped command executes.
 
-* **Transparent Policy Protection**: This is a pre-packaged guest VM runtime where Enforra is bundled directly inside the container image.
-* **Standard smolvm Tooling**: End-users continue using their normal `smolvm` CLI. They do not need to install wrappers, clone this repository, or run npm links.
-* **Interception at Guest Layer**: They simply run `enforra-node` instead of the official `node` machine. Internal wrapper paths intercept all `node`, `npm`, and shell commands inside the VM, routing them to the bundled Enforra policy engine before execution.
-* **Gated Execution**: 
-  - **Safe commands** (like standard node scripts) are allowed immediately.
-  - **Risky commands** (like `npm install`) require manual approval from the user.
-  - **Destructive or secret-reading commands** (like `rm -rf` or reading credentials) are blocked.
+> This is a targeted protected runtime for normal agent and smolvm workflows. It is not a malicious-root or arbitrary-internal-path security boundary. See [THREAT_MODEL.md](THREAT_MODEL.md).
 
-*Note: This is a policy-protected runtime VM package, not a typical application SDK integration path.*
-
----
-
-## Usage
+## Quickstart
 
 ### Once published to the registry
 
-To pull and execute commands using the official published package:
-
 ```bash
-# 1. Pull the protected Node smolmachine package
 smolvm pack pull registry.smolmachines.com/library/enforra-node:latest -o enforra-node.smolmachine
 
-# 2. Run standard Node commands (allowed immediately)
+# Allowed
 smolvm pack run --sidecar enforra-node.smolmachine node -e "console.log('hello')"
 
-# 3. Run installation commands (requires human approval; use -i for interactive stdin)
+# Requires approval. Use -i so stdin reaches the VM.
 smolvm pack run -i --sidecar enforra-node.smolmachine npm install lodash
 
-# 4. Attempt dangerous operations (blocked by policy)
+# Blocked
 smolvm pack run --sidecar enforra-node.smolmachine sh -lc "rm -rf /workspace"
+smolvm pack run --sidecar enforra-node.smolmachine env
 ```
 
-### Until published (local development flow)
-
-For developers wanting to build and test the pack locally:
+### Local build
 
 ```bash
-# 1. Build and package the smolmachine locally
 npm run pack:build
-
-# 2. Run commands against the locally built sidecar package
 smolvm pack run --sidecar packs/enforra-node/enforra-node.smolmachine node -e "console.log('hello')"
 ```
 
----
+## Explain before execution
 
-## Policy Gating Details
-
-* **Allow**: Returns the child command's output and exit code.
-* **Block**: Outputs the block reason, prevents command execution, and exits with code `3`.
-* **Require Approval**: Outputs a prompt: `Approve and run this command? [y/N]: `. Approving (`y`/`yes`) executes the command. Declining (or hitting Enter) exits with code `2`. Always pass the `-i` flag to `smolvm pack run` to enable interactive terminal input when approval prompts are expected.
-
----
-
-## Development & Verification
-
-To run unit and security integration tests locally on the classifier and runtime wrapper logic:
+`enforra explain` evaluates the same classifier and policy without running the target command.
 
 ```bash
-npm test
+smolvm pack run --sidecar enforra-node.smolmachine \
+  enforra explain -- npm install lodash
 ```
+
+Example output:
+
+```text
+Decision: require_approval
+Tool: npm.install
+Risk: medium
+Signals: package_install, package_mutation, network_download
+Matched policy: approval-for-package-install
+Would execute immediately: no
+Policy hash: sha256:...
+Classifier: @enforra/command-guard@...
+Executed: no (explain mode)
+```
+
+Use `--json` for machine-readable output:
+
+```bash
+smolvm pack run --sidecar enforra-node.smolmachine \
+  enforra explain --json -- sh -lc "rm -rf /workspace"
+```
+
+## Policy receipts
+
+Every enforced decision writes a receipt containing:
+
+- command hash, not the raw command
+- policy hash
+- classifier, SDK, and pack versions
+- decision and matched policy
+- approval and execution outcome
+- previous receipt hash and current receipt hash
+
+Receipts are stored at `/app/receipts.jsonl` by default and form a SHA-256 hash chain.
+
+For persistent evidence, use a named machine:
+
+```bash
+smolvm machine create --name enforra-node --from enforra-node.smolmachine
+smolvm machine start --name enforra-node
+
+smolvm machine exec --name enforra-node -- node -e "console.log('hello')"
+smolvm machine exec --name enforra-node -- env
+
+smolvm machine exec --name enforra-node -- \
+  enforra receipts verify /app/receipts.jsonl
+
+smolvm machine exec --name enforra-node -- cat /app/audit.jsonl
+```
+
+The verifier checks the receipt hash chain and reports whether all receipts were produced under the currently loaded policy hash. Receipts are tamper-evident, not externally signed or remotely anchored.
+
+## Pack identity
+
+```bash
+smolvm pack run --sidecar enforra-node.smolmachine enforra info --json
+```
+
+The pack includes `enforra-manifest.json` with supported entrypoints, default policy behavior, receipt format, and evidence paths. This is intended to support future registry verification metadata without requiring a custom host wrapper.
+
+## Protected entrypoints
+
+The image currently wraps these supported public command entrypoints:
+
+```text
+node, nodejs, npm, npx
+sh, dash, bash
+env, printenv
+cat, rm
+```
+
+The policy can still classify risk signals found inside protected shell commands, such as download-and-execute patterns. The pack does not claim to wrap every binary in the VM.
+
+## Decisions and exit codes
+
+| Decision | Behavior | Exit code |
+|---|---|---:|
+| `allow` / `log_only` | executes the real command | child exit code |
+| `require_approval`, declined | does not execute | `2` |
+| `block` | does not execute | `3` |
+| receipt write failure after an allowed execution | reports evidence failure | `70` |
+
+## Development and verification
+
+```bash
+npm ci
+npm test
+npm run pack:build
+npm run verify:pack
+```
+
+`npm run verify:pack` exercises ephemeral and persistent user flows, allow/approval/block behavior, public absolute paths, explain mode, and receipt verification.
+
+A real networked package install is optional because smolvm network flags can differ by environment:
+
+```bash
+VERIFY_REAL_INSTALL=1 \
+SMOLVM_RUN_EXTRA_ARGS="<your smolvm network flags>" \
+npm run verify:pack
+```
+
+## Configuration
+
+| Variable | Default |
+|---|---|
+| `ENFORRA_POLICY` | `/app/policy.yaml` |
+| `ENFORRA_AUDIT` | `/app/audit.jsonl` |
+| `ENFORRA_RECEIPTS` | `/app/receipts.jsonl` |
+| `ENFORRA_AGENT_ID` | `enforra-node` |
+| `ENFORRA_RUNTIME_ID` | `enforra-node-smolmachine` |
+
+Teams can edit `packs/enforra-node/policy.yaml` and rebuild the smolmachine with their own controls.
