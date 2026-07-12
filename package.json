@@ -8,7 +8,7 @@
     "test": "node --test test/*.test.js",
     "pack:build": "./scripts/build-enforra-node-pack.sh",
     "pack:run": "smolvm pack run --sidecar packs/enforra-node/enforra-node.smolmachine",
-    "verify:pack": "./scripts/verify-pack.sh"
+    "verify:pack": "bash ./scripts/verify-pack.sh"
   },
   "dependencies": {
     "@enforra/sdk-node": "0.3.0"
