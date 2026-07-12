@@ -1,11 +1,20 @@
 import test from "node:test";
 import assert from "node:assert";
-import { exec, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
 const RUN_PATH = path.resolve("packs/enforra-node/enforra-run.js");
 const TEMP_AUDIT = path.resolve("temp-audit.jsonl");
+const TEMP_RECEIPTS = path.resolve("temp-receipts.jsonl");
+
+function cleanupEvidence() {
+  for (const evidencePath of [TEMP_AUDIT, TEMP_RECEIPTS, `${TEMP_RECEIPTS}.lock`]) {
+    if (fs.existsSync(evidencePath)) {
+      fs.rmSync(evidencePath, { force: true });
+    }
+  }
+}
 
 function runCommand(args, env = {}, stdinInput = "n\n") {
   return new Promise((resolve) => {
@@ -14,6 +23,7 @@ function runCommand(args, env = {}, stdinInput = "n\n") {
         ...process.env,
         ENFORRA_POLICY: path.resolve("packs/enforra-node/policy.yaml"),
         ENFORRA_AUDIT: TEMP_AUDIT,
+        ENFORRA_RECEIPTS: TEMP_RECEIPTS,
         ...env
       }
     });
@@ -22,10 +32,12 @@ function runCommand(args, env = {}, stdinInput = "n\n") {
 
     let stdout = "";
     let stderr = "";
-
-    child.stdout.on("data", (data) => { stdout += data.toString(); });
-    child.stderr.on("data", (data) => { stderr += data.toString(); });
-
+    child.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
     child.on("close", (code) => {
       resolve({ code, stdout, stderr });
     });
@@ -33,45 +45,67 @@ function runCommand(args, env = {}, stdinInput = "n\n") {
 }
 
 test("main-security: spoof attempt cannot downscore", async () => {
-  if (fs.existsSync(TEMP_AUDIT)) fs.unlinkSync(TEMP_AUDIT);
+  cleanupEvidence();
 
-  // Attempt to spoof tool as low-risk/allowed file.read
-  const res = await runCommand(["--tool", "file.read", "--risk", "low", "--", "rm", "-rf", "/workspace"]);
+  try {
+    const result = await runCommand([
+      "--tool",
+      "file.read",
+      "--risk",
+      "low",
+      "--",
+      "rm",
+      "-rf",
+      "/workspace"
+    ]);
 
-  // Should NOT treat it as explicit mode. The command should be classified as command.exec
-  // and trigger require_approval, then exit with code 2 on decline.
-  assert.strictEqual(res.code, 2);
-  assert.match(res.stdout, /Approval required for command: --tool file.read --risk low -- rm -rf \/workspace/);
+    assert.strictEqual(result.code, 2);
+    assert.match(
+      result.stdout,
+      /Approval required for command: --tool file.read --risk low -- rm -rf \/workspace/
+    );
+  } finally {
+    cleanupEvidence();
+  }
 });
 
 test("main-security: normal commands still work", async () => {
-  if (fs.existsSync(TEMP_AUDIT)) fs.unlinkSync(TEMP_AUDIT);
+  cleanupEvidence();
 
-  const res = await runCommand(["echo", "hello from test"], {}, "y\n");
-  assert.strictEqual(res.code, 0);
-  assert.match(res.stdout, /hello from test/);
+  try {
+    const result = await runCommand(["echo", "hello from test"], {}, "y\n");
+    assert.strictEqual(result.code, 0);
+    assert.match(result.stdout, /hello from test/);
+    assert.ok(fs.existsSync(TEMP_RECEIPTS), "Policy receipt should be written");
+  } finally {
+    cleanupEvidence();
+  }
 });
 
-test("main-security: ENFORRA_AGENT_ID and ENFORRA_RUNTIME_ID are respected", async () => {
-  if (fs.existsSync(TEMP_AUDIT)) fs.unlinkSync(TEMP_AUDIT);
+test("main-security: agent/runtime identity is recorded in audit and receipt", async () => {
+  cleanupEvidence();
 
-  const customAgent = "custom-test-agent";
-  const customRuntime = "custom-test-runtime";
+  try {
+    const customAgent = "custom-test-agent";
+    const customRuntime = "custom-test-runtime";
+    const result = await runCommand(["sh", "-lc", "rm -rf /workspace"], {
+      ENFORRA_AGENT_ID: customAgent,
+      ENFORRA_RUNTIME_ID: customRuntime
+    });
 
-  // Trigger a blocked command (e.g. destructive rm -rf)
-  const res = await runCommand(["sh", "-lc", "rm -rf /workspace"], {
-    ENFORRA_AGENT_ID: customAgent,
-    ENFORRA_RUNTIME_ID: customRuntime
-  });
+    assert.strictEqual(result.code, 3);
+    assert.ok(fs.existsSync(TEMP_AUDIT), "Audit log should exist");
+    assert.ok(fs.existsSync(TEMP_RECEIPTS), "Receipt log should exist");
 
-  assert.strictEqual(res.code, 3);
+    const auditEvent = JSON.parse(fs.readFileSync(TEMP_AUDIT, "utf8").trim().split("\n")[0]);
+    assert.strictEqual(auditEvent.agent, customAgent);
 
-  // Inspect the audit log to verify custom agent/runtime are logged
-  assert.ok(fs.existsSync(TEMP_AUDIT), "Audit log should exist");
-  const auditContent = fs.readFileSync(TEMP_AUDIT, "utf8");
-  const parsed = JSON.parse(auditContent.trim().split("\n")[0]);
-
-  assert.strictEqual(parsed.agent, customAgent);
-  // Clean up
-  if (fs.existsSync(TEMP_AUDIT)) fs.unlinkSync(TEMP_AUDIT);
+    const receipt = JSON.parse(fs.readFileSync(TEMP_RECEIPTS, "utf8").trim().split("\n")[0]);
+    assert.strictEqual(receipt.agent, customAgent);
+    assert.strictEqual(receipt.runtime, customRuntime);
+    assert.strictEqual(receipt.decision, "block");
+    assert.strictEqual(receipt.executed, false);
+  } finally {
+    cleanupEvidence();
+  }
 });
