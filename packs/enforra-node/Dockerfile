@@ -32,7 +32,7 @@ RUN set -eux; \
     ln -s /app/enforra-run.js /usr/local/bin/enforra-run; \
     ln -s /app/enforra-run.js /usr/local/bin/enforra; \
     \
-    for cmd in node npm npx; do \
+    for cmd in node nodejs npm npx; do \
       printf '#!/opt/enforra/real/sh\nexec /opt/enforra/real/node /app/enforra-run.js %s "$@"\n' "$cmd" > "/usr/local/bin/$cmd"; \
       chmod +x "/usr/local/bin/$cmd"; \
     done; \
@@ -42,6 +42,7 @@ RUN set -eux; \
     done; \
     \
     test -x /usr/local/bin/enforra; \
+    test -x /usr/local/bin/nodejs; \
     test -x /usr/local/bin/npm; \
     test -x /usr/local/bin/npx; \
     test -x /usr/bin/sh; \
