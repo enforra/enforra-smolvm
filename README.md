@@ -24,7 +24,33 @@ smolvm pack run --sidecar enforra-node.smolmachine sh -lc "rm -rf /workspace"
 smolvm pack run --sidecar enforra-node.smolmachine env
 ```
 
-### Local build
+### Build a directly shareable `.smolmachine`
+
+The public registry is not required to package or test the VM. Docker builds the OCI image, a temporary local registry makes that image reachable to `smolvm pack create`, and smolvm writes the portable binary artifact.
+
+Run the complete build and acceptance flow:
+
+```bash
+npm run package:verify
+```
+
+This produces:
+
+```text
+dist/enforra-node.smolmachine
+dist/enforra-node.smolmachine.sha256
+```
+
+The `.smolmachine` file can be transferred directly to another user and run without cloning this repository:
+
+```bash
+smolvm pack run --sidecar dist/enforra-node.smolmachine enforra info --json
+smolvm pack run --sidecar dist/enforra-node.smolmachine node -e "console.log('hello')"
+```
+
+`npm run package:verify` tests the exact packaged artifact in both ephemeral and persistent machine flows. Publishing that same artifact to the registry changes distribution, not its runtime contents. Registry pull, registry metadata, and registry-side verification still require a separate post-publication test.
+
+### Local build only
 
 ```bash
 npm run pack:build
@@ -128,16 +154,17 @@ npm ci
 npm test
 npm run pack:build
 npm run verify:pack
+npm run package:verify
 ```
 
-`npm run verify:pack` exercises ephemeral and persistent user flows, allow/approval/block behavior, public absolute paths, explain mode, and receipt verification.
+`npm run verify:pack` exercises an existing artifact. `npm run package:verify` starts from Docker, creates a fresh `.smolmachine`, copies it into `dist`, generates its SHA-256 checksum, and runs the full acceptance suite against that exact file.
 
 A real networked package install is optional because smolvm network flags can differ by environment:
 
 ```bash
 VERIFY_REAL_INSTALL=1 \
 SMOLVM_RUN_EXTRA_ARGS="<your smolvm network flags>" \
-npm run verify:pack
+npm run package:verify
 ```
 
 ## Configuration
