@@ -1,82 +1,86 @@
 # Enforra protected Node smolmachine
 
-Node.js runtime with Enforra policy, approval, and audit built directly inside the virtual machine boundary.
+Node.js runtime with Enforra policy, approval, audit, explain mode, and tamper-evident policy receipts inside the guest VM.
+
+Users run normal `smolvm` commands. The pack protects a defined set of public Node and shell-related entrypoints before execution.
+
+> Scope: supported public command entrypoints used by normal agent workflows. This is not a universal Linux security runtime or a malicious-root boundary. See the repository `THREAT_MODEL.md`.
 
 ## Quickstart
 
 ```bash
-# Pull the latest packed smolmachine
 smolvm pack pull registry.smolmachines.com/library/enforra-node:latest -o enforra-node.smolmachine
 
-# Run a safe Node command
-smolvm pack run --sidecar enforra-node.smolmachine node -e "console.log('hello from Enforra Node ' + process.version)"
+# Allowed
+smolvm pack run --sidecar enforra-node.smolmachine node -e "console.log('hello')"
 
-# Install a package (requires approval — use -i for interactive stdin)
+# Requires approval
 smolvm pack run -i --sidecar enforra-node.smolmachine npm install lodash
 
-# Destructive command (blocked by policy)
+# Blocked
 smolvm pack run --sidecar enforra-node.smolmachine sh -lc "rm -rf /workspace"
-
-# Secret access (blocked by policy)
 smolvm pack run --sidecar enforra-node.smolmachine env
 ```
 
----
+## Explain mode
 
-## How it works
-
-This pack wraps specific Node and shell-related utilities inside the VM to enforce policy check routing before execution.
-
-* **Standard smolvm commands**: End-users keep using normal `smolvm` commands. Enforra is bundled inside the VM image.
-* **Wrapper-based protection**: Common relative commands and their public absolute binary paths are replaced with wrappers inside the image:
-  - Node.js: `node`, `nodejs`, `npm`, `npx`
-  - Shell: `sh`, `bash` (including `/bin/sh`, `/bin/dash`, `/bin/bash`)
-  - System: `env`, `printenv` (including `/usr/bin/env`, `/usr/bin/printenv`)
-  - File: `cat`, `rm` (including `/usr/bin/cat`, `/usr/bin/rm`)
-* **Secure internal routing**: Real binaries are moved to a private directory (`/opt/enforra/real/`) during the image build. The wrappers invoke Enforra via `/opt/enforra/real/node`, ensuring absolute path executions (like `/usr/bin/env` or `/usr/bin/rm`) cannot bypass protection.
-
-*Note: This is a targeted policy-protected runtime for Node execution workloads, not a universal Linux security runtime, and it does not wrap or protect every possible binary in the VM.*
-
----
-
-## Local Build & Packaging
-
-To develop or test this pack locally, build the OCI image and package it into a `.smolmachine`:
-
-### 1. Build the OCI Image
 ```bash
-docker build -t enforra-node:latest packs/enforra-node
+smolvm pack run --sidecar enforra-node.smolmachine \
+  enforra explain -- npm install lodash
+
+smolvm pack run --sidecar enforra-node.smolmachine \
+  enforra explain --json -- env
 ```
 
-### 2. Setup Local Registry for Packaging
-Because `smolvm` pulls images inside a virtualization environment, you must run a local docker registry:
+Explain mode returns the classification, risk, decision, matched policy, policy hash, and runtime versions without executing the target command.
+
+## Policy receipts
+
+Each real decision writes a receipt to `/app/receipts.jsonl`. Receipts include command and policy hashes, versions, decision evidence, approval outcome, execution result, and a previous-receipt hash.
 
 ```bash
-# Start the registry container
-docker run -d -p 5001:5000 --name local-registry registry:2
+smolvm machine create --name enforra-node --from enforra-node.smolmachine
+smolvm machine start --name enforra-node
+smolvm machine exec --name enforra-node -- node -e "console.log('hello')"
+smolvm machine exec --name enforra-node -- enforra receipts verify /app/receipts.jsonl
+```
 
-# Tag and push the image
+The hash chain is tamper-evident. It is not externally signed or remotely anchored.
+
+## Protected public entrypoints
+
+```text
+node, nodejs, npm, npx
+sh, dash, bash
+env, printenv
+cat, rm
+```
+
+Real binaries are moved to `/opt/enforra/real` during image construction so the supported public relative and absolute paths route through Enforra. Those internal paths are implementation details and are not claimed as a boundary against a user with arbitrary execution or root-level access.
+
+## Local build
+
+```bash
+docker build -t enforra-node:latest packs/enforra-node
+
+docker run -d -p 5001:5000 --name local-registry registry:2
 docker tag enforra-node:latest localhost:5001/enforra-node:latest
 docker push localhost:5001/enforra-node:latest
 
-# Pack the image into .smolmachine
 REGISTRY_HOST=192.168.64.1 REGISTRY_PORT=5001 npm run pack:build
 ```
 
----
+## Evidence paths
 
-## Audit Log Persistence
+| Evidence | Default path |
+|---|---|
+| Policy | `/app/policy.yaml` |
+| Audit log | `/app/audit.jsonl` |
+| Policy receipts | `/app/receipts.jsonl` |
+| Pack manifest | `/app/enforra-manifest.json` |
 
-By default in ephemeral command runs, files written inside the VM are discarded. For persistent audit logging, create a named machine:
+Use the protected `cat` entrypoint to inspect the audit log:
 
 ```bash
-# Create and start a persistent VM
-smolvm machine create --name enforra-node --from enforra-node.smolmachine
-smolvm machine start --name enforra-node
-
-# Run commands
-smolvm machine exec --name enforra-node -- node -e "console.log('hello')"
-
-# View the accumulated audit log
-smolvm machine exec --name enforra-node -- /opt/enforra/real/node -e "console.log(require('fs').readFileSync('/app/audit.jsonl','utf8'))"
+smolvm machine exec --name enforra-node -- cat /app/audit.jsonl
 ```
