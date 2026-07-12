@@ -10,6 +10,8 @@ node-registry.smolmachine
 .env
 .env.*
 audit.jsonl
+receipts.jsonl
+*.receipts.jsonl
+*.lock
 *.smolmachine.smolmachine
 packs/enforra-node/enforra-node
-
