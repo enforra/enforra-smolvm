@@ -1,5 +1,6 @@
 node_modules/
 .enforra/
+dist/
 *.smolmachine
 codex.smolmachine
 codex-registry.smolmachine
@@ -10,6 +11,8 @@ node-registry.smolmachine
 .env
 .env.*
 audit.jsonl
+receipts.jsonl
+*.receipts.jsonl
+*.lock
 *.smolmachine.smolmachine
 packs/enforra-node/enforra-node
-

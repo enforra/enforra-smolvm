@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "name": "enforra-node",
+  "version": "1.0.0",
+  "description": "Node smolmachine with Enforra policy, approval, audit, explain mode, and tamper-evident policy receipts.",
+  "protection": {
+    "mode": "supported-public-entrypoints",
+    "defaultDecision": "block",
+    "supportedEntrypoints": [
+      "node",
+      "nodejs",
+      "npm",
+      "npx",
+      "sh",
+      "dash",
+      "bash",
+      "env",
+      "printenv",
+      "cat",
+      "rm"
+    ],
+    "approval": true,
+    "audit": true,
+    "explain": true,
+    "policyReceipts": {
+      "format": "jsonl",
+      "version": 1,
+      "integrity": "sha256-hash-chain",
+      "signed": false
+    }
+  },
+  "paths": {
+    "policy": "/app/policy.yaml",
+    "audit": "/app/audit.jsonl",
+    "receipts": "/app/receipts.jsonl"
+  },
+  "securityBoundary": "Supported public command entrypoints used by normal smolvm and agent workflows. See THREAT_MODEL.md for exclusions."
+}

@@ -6,8 +6,10 @@
   "scripts": {
     "check:smolvm": "smolvm --help",
     "test": "node --test test/*.test.js",
-    "pack:build": "./scripts/build-enforra-node-pack.sh",
-    "pack:run": "smolvm pack run --sidecar packs/enforra-node/enforra-node.smolmachine"
+    "pack:build": "bash ./scripts/build-enforra-node-pack.sh",
+    "pack:run": "smolvm pack run --sidecar packs/enforra-node/enforra-node.smolmachine",
+    "verify:pack": "bash ./scripts/verify-pack.sh",
+    "package:verify": "bash ./scripts/package-and-verify.sh"
   },
   "dependencies": {
     "@enforra/sdk-node": "0.3.0"
