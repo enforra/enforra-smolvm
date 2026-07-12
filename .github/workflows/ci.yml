@@ -23,9 +23,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packs/enforra-node/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
+
+      - name: Install pack dependencies
+        run: npm ci --prefix packs/enforra-node
 
       - name: Run unit and security tests
         run: npm test
