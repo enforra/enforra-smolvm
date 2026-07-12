@@ -1,39 +1,26 @@
 FROM node:22-slim
 
-# Set working directory inside the VM container
 WORKDIR /app
 
-# Copy package configuration and install production dependencies
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Copy the Enforra entrypoint and policy file
-COPY enforra-run.js policy.yaml ./
+COPY enforra-run.js policy.yaml enforra-manifest.json ./
 COPY runtime ./runtime
 
-# ── Wrapper-based protection layer (must be last in the build) ──────
+# Wrapper-based protection layer. Keep this as the final build step.
 #
-# 1. Create the private runtime directory `/opt/enforra/real` and move
-#    the real system/Node binaries there.
-#
-# 2. Replace the public paths (like /usr/bin/env, /bin/sh, etc.) with
-#    wrapper scripts pointing to the private real paths. This ensures
-#    absolute path invocations cannot bypass Enforra.
-#
-# 3. Wrapper script shebangs use the real private shell directly
-#    (#!/opt/enforra/real/sh) to prevent wrapper recursion.
-#
-# IMPORTANT: Do not add RUN commands after this block. Any command
-# that uses a wrapped binary would be routed through Enforra.
-
+# Real binaries used by the wrapper are moved to /opt/enforra/real.
+# Supported public command paths are replaced with Enforra wrappers so normal
+# relative and public absolute-path invocations pass through policy first.
+# Internal /opt/enforra/real paths are implementation details, not a
+# malicious-root security boundary. See THREAT_MODEL.md in the repository.
 RUN set -eux; \
     chmod +x enforra-run.js; \
     mkdir -p /opt/enforra/real; \
     \
-    # Delete old symlinks / wrappers first while rm is still in PATH \
     rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/bin/sh; \
     \
-    # Move real binaries to private runtime path \
     mv /usr/local/bin/node /opt/enforra/real/node; \
     mv /usr/bin/env /opt/enforra/real/env; \
     mv /usr/bin/printenv /opt/enforra/real/printenv; \
@@ -42,10 +29,9 @@ RUN set -eux; \
     mv /usr/bin/dash /opt/enforra/real/sh; \
     mv /usr/bin/bash /opt/enforra/real/bash; \
     \
-    # Create enforra-run symlink for ease of access \
     ln -s /app/enforra-run.js /usr/local/bin/enforra-run; \
+    ln -s /app/enforra-run.js /usr/local/bin/enforra; \
     \
-    # Create wrapper scripts pointing to private node/sh \
     for cmd in node npm npx; do \
       printf '#!/opt/enforra/real/sh\nexec /opt/enforra/real/node /app/enforra-run.js %s "$@"\n' "$cmd" > "/usr/local/bin/$cmd"; \
       chmod +x "/usr/local/bin/$cmd"; \
@@ -55,7 +41,7 @@ RUN set -eux; \
       chmod +x "/usr/bin/$cmd"; \
     done; \
     \
-    # Verify everything looks right \
+    test -x /usr/local/bin/enforra; \
     test -x /usr/local/bin/npm; \
     test -x /usr/local/bin/npx; \
     test -x /usr/bin/sh; \
